@@ -4,9 +4,10 @@ import json
 from pathlib import Path
 import queue
 import threading
+import tempfile
 import traceback
 
-LOG_PATH = Path(r'C:\Projects\ROBOTDOLLY-WorldBridge\build\worldbridge-import.log')
+LOG_PATH = Path(tempfile.gettempdir()) / 'WorldBridge' / 'worldbridge-import.log'
 _LOG_LOCK = threading.Lock()
 
 

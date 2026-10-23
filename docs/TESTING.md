@@ -1,5 +1,23 @@
 # Testing and evidence boundaries
 
+## v0.4 local validation — 2026-10-23
+
+22 standalone tests passed. `blender_smoke`, `blender_incremental`,
+`blender_v04` and `blender_v04_rescue` passed in both Blender 4.2.0 and 4.5.0.
+The backup and cached-FBX audits also passed. Run `python tools/run_v04_tests.py`
+to reproduce with the authorized local fixtures present. Summary and full logs
+are written to `build/v04-validation`; private audit data is never packaged.
+
+The actual WorldBridge content-ZIP operator was exercised. Both genuine 2,121-entity
+inputs produced matching parsed data, parent links and world transforms, with
+unchanged source hashes. Native selections, origin/bounds regions, duplicate
+prevention, embedded camera suppression, light controls and actual local texture
+recovery were checked. Interactive picker/dialog appearance, region manipulation,
+long-import responsiveness and rendered appearance remain unverified. See
+[v0.4 findings and acceptance checklist](V0.4.md).
+
+## Preserved v0.3 validation
+
 Publication validation (2026-10-22): 14 standalone tests passed. The existing smoke, incremental, v0.3 and real-backup suites were run headlessly in Blender 4.2.0 and 4.5.0; see the validation results below. These tests do not verify interactive responsiveness or visual appearance.
 
 ## Reproduce public tests

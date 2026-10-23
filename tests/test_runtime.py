@@ -133,6 +133,20 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(list(self.root.glob('*.part')), [])
         self.assertEqual(list(self.root.glob('*.glb')), [])
 
+    def test_explicit_refresh_preserves_cache_on_failure(self):
+        url = 'https://example.test/refresh.glb'
+        with patch('worldbridge.assets.urllib.request.build_opener') as factory:
+            factory.return_value.open.return_value = Response(b'original')
+            target = download(url, self.root)
+            factory.return_value.open.side_effect = TimeoutError('refresh failed')
+            with self.assertRaises(TimeoutError):
+                download(url, self.root, force_reload=True)
+            self.assertEqual(target.read_bytes(), b'original')
+            factory.return_value.open.side_effect = None
+            factory.return_value.open.return_value = Response(b'refreshed')
+            download(url, self.root, force_reload=True)
+            self.assertEqual(target.read_bytes(), b'refreshed')
+
 
 if __name__ == '__main__':
     unittest.main()

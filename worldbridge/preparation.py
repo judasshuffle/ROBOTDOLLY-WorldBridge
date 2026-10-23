@@ -1,9 +1,12 @@
 """Backup parsing and preservation; safe to call from an I/O worker."""
 import json
 import uuid
+import hashlib
+from urllib.parse import urlsplit
 from pathlib import Path
 from .parser import load_backup, plan_entities
 from .assets import check_cancel
+from .assets import MAX_ASSET_BYTES
 
 
 def save_json(path, data):
@@ -12,9 +15,9 @@ def save_json(path, data):
     temporary.replace(path)
 
 
-def prepare_backup(filepath, output_dir, cancel_event=None):
+def prepare_backup(filepath, output_dir, cancel_event=None, archive_member=None):
     check_cancel(cancel_event)
-    data = load_backup(filepath)
+    data = load_backup(filepath, archive_member=archive_member)
     records, warnings = plan_entities(data)
     check_cancel(cancel_event)
     output = Path(output_dir).resolve()
@@ -24,6 +27,7 @@ def prepare_backup(filepath, output_dir, cancel_event=None):
     report_path = output / ('worldbridge-' + token + '.report.json')
     save_json(sidecar, data)
     report = dict(status='IN_PROGRESS', phase='ANCHORS', source=str(Path(filepath).resolve()),
+                  archive_member=archive_member,
                   sidecar=str(sidecar), entities=len(records), represented=0, entities_processed=0,
                   assets_downloaded=0, assets_success=0, assets_failed=0, assets_skipped=0,
                   assets_cancelled=0, warnings=warnings, failures=[], skipped=[])
@@ -56,6 +60,10 @@ def prepare_selected(targets, output_dir, token, limit, cancel_event=None):
             reason = 'Model already loaded'
         elif not entity.get('visible', True) or not entity.get('modelURL'):
             reason = 'Invisible model or missing URL'
+        elif urlsplit(entity['modelURL']).scheme not in ('http', 'https') or not urlsplit(entity['modelURL']).hostname:
+            reason = 'Unsupported model URL; only HTTP(S) is downloadable'
+        elif Path(urlsplit(entity['modelURL']).path).suffix.lower() not in ('.fbx', '.gltf', '.glb'):
+            reason = 'Unsupported model file format'
         elif limit > 0 and len(tasks) >= limit:
             reason = 'Safe test model limit'
         if reason:
@@ -66,5 +74,14 @@ def prepare_selected(targets, output_dir, token, limit, cancel_event=None):
                               url=entity['modelURL'], entity=entity, target_key=target['target_key'],
                               cache=str(Path(path).parent/'cache')))
     report['sidecars'] = sorted(documents)
+    unique = {(t['url'], t['cache']) for t in tasks}
+    cached = 0
+    for url, cache in unique:
+        path = Path(cache) / (hashlib.sha256(url.encode()).hexdigest() + Path(urlsplit(url).path).suffix.lower())
+        if path.is_file() and 0 < path.stat().st_size <= MAX_ASSET_BYTES:
+            cached += 1
+    report['selected_unique_assets'] = len(unique)
+    report['selected_cached_assets'] = cached
+    report['selected_downloadable_assets'] = len(unique) - cached
     return dict(selected=True, tasks=tasks, output=output, token=token, report=report,
                 report_path=output / ('worldbridge-' + token + '.report.json'))

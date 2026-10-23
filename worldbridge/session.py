@@ -14,7 +14,7 @@ from .viewport import after_import, owned_objects, role
 
 
 def fetch_asset(task, event, cache):
-    path = download(task['url'], task.get('cache', cache), cancel_event=event)
+    path = download(task['url'], task.get('cache', cache), cancel_event=event, force_reload=task.get('force_reload', False))
     if path.suffix in ('.glb', '.gltf'):
         validate_gltf(path)
     return path
@@ -22,7 +22,7 @@ def fetch_asset(task, event, cache):
 
 class ImportSession:
     def __init__(self, filepath, output_dir, load_models=True, world_positions=False,
-                 model_limit=4, model_filter='', downloader=None, existing_targets=None):
+                 model_limit=4, model_filter='', downloader=None, existing_targets=None, archive_member=None, force_reload=False):
         self.scene = bpy.context.scene
         self.token = uuid.uuid4().hex[:12]
         self.log = ProgressLog(self.token)
@@ -46,12 +46,14 @@ class ImportSession:
         self.last_log_progress = None
         self.logged_warnings = 0
         self.completed_tasks = 0
+        self.loaded_anchors = []
+        self.force_reload = force_reload
         self.existing_targets = {}
         self.log.write('session_started', source=self.filepath, **self.options)
         # Capture immutable values, not the session or Blender objects, in worker.
         source, output = self.filepath, str(self.output)
         if existing_targets is None:
-            function = lambda event: prepare_backup(source, output, event)
+            function = lambda event: prepare_backup(source, output, event, archive_member=archive_member)
         else:
             snapshots = []
             for index, anchor in enumerate(sorted(set(existing_targets), key=lambda o: (o['worldbridge_sidecar'], o['worldbridge_record_index']))):
@@ -191,6 +193,8 @@ class ImportSession:
             self.report = payload['report']
             self.report_path = payload['report_path']
             if payload.get('selected'):
+                for task in payload['tasks']:
+                    task['force_reload'] = self.force_reload
                 cache = self.output / 'cache'
                 downloader = self.downloader or (lambda task, event: fetch_asset(task, event, cache))
                 self.assets = AssetQueue(payload['tasks'], downloader, self.log)
@@ -260,6 +264,9 @@ class ImportSession:
                     return
                 placeholders = [o for o in anchor.children if o.get('worldbridge_visual')]
                 import_model(payload, anchor, task['entity'], target_collection, validated=True)
+                self.loaded_anchors.append(anchor)
+                self.report.setdefault('texture_diagnostics', []).append(dict(index=task['index'],
+                    images=json.loads(anchor.get('worldbridge_texture_diagnostics', '[]'))))
                 repairs = json.loads(anchor.get('worldbridge_material_repairs', '[]'))
                 if repairs:
                     self.report.setdefault('material_repairs', []).append(dict(index=task['index'], repairs=repairs))
@@ -289,6 +296,9 @@ class ImportSession:
         elif action == 'done':
             issues = self.report['warnings'] or self.report['assets_failed'] or self.report['assets_skipped']
             self.finish('COMPLETE_WITH_WARNINGS' if issues else 'COMPLETE')
+            if self.loaded_anchors and getattr(self.scene, 'worldbridge_auto_recover', False):
+                from .reconstruction_ui import start
+                start(self.loaded_anchors, self.scene)
 
     def asset_failure(self, task, stage, detail):
         self.report['assets_failed'] += 1

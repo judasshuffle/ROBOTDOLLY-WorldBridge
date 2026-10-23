@@ -48,6 +48,9 @@ def visual(entity, anchor, collection):
     collection.objects.link(obj)
     obj.parent = anchor
     obj.location = offset
+    if kind == 'Light':
+        from .lighting import configure
+        configure(obj, entity)
     if not entity.get('visible', True):
         obj.hide_render = True
         if kind == 'Light':
@@ -71,6 +74,22 @@ def import_model(path, anchor, entity, collection, validated=False):
             raise ValueError('Blender importer cancelled')
         added = set(bpy.data.objects) - before
         bpy.context.view_layer.update()
+        cameras = [obj for obj in added if obj.type == 'CAMERA']
+        anchor['worldbridge_embedded_cameras'] = json.dumps([
+            dict(name=obj.name, matrix=[list(row) for row in obj.matrix_world],
+                 lens=obj.data.lens, clip_start=obj.data.clip_start, clip_end=obj.data.clip_end,
+                 type=obj.data.type) for obj in cameras])
+        if not getattr(bpy.context.scene, 'worldbridge_import_cameras', False):
+            for obj in cameras:
+                for child in list(obj.children):
+                    matrix = child.matrix_world.copy()
+                    child.parent = obj.parent
+                    child.matrix_world = matrix
+                added.remove(obj)
+                camera_data = obj.data
+                bpy.data.objects.remove(obj, do_unlink=True)
+                if camera_data.users == 0:
+                    bpy.data.cameras.remove(camera_data)
         points = [obj.matrix_world @ Vector(corner) for obj in added if obj.type == 'MESH' for corner in obj.bound_box]
         if not points:
             raise ValueError('Asset contains no mesh geometry')
@@ -85,6 +104,10 @@ def import_model(path, anchor, entity, collection, validated=False):
         roots = [obj for obj in added if obj.parent not in added]
         for obj in added:
             obj['worldbridge_role'] = 'MODEL'
+            if obj.type == 'LIGHT':
+                obj['worldbridge_embedded_light_energy'] = obj.data.energy
+                obj['worldbridge_original_energy'] = 0.0
+                obj.data.energy = 0
             for old in list(obj.users_collection):
                 old.objects.unlink(obj)
             collection.objects.link(obj)
@@ -99,6 +122,8 @@ def import_model(path, anchor, entity, collection, validated=False):
         materials = {slot.material for obj in added for slot in obj.material_slots
                      if slot.material and slot.material not in previous_materials}
         repairs = repair_materials(path, materials)
+        # Recovery is queued after the batch, avoiding synchronous scans per model.
+        anchor['worldbridge_texture_diagnostics'] = '[]'
         anchor['worldbridge_material_repairs'] = json.dumps(repairs)
         anchor['worldbridge_model_loaded'] = True
         anchor['worldbridge_cached_asset'] = str(path)

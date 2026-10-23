@@ -29,7 +29,7 @@ class SafeRedirect(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def download(url, cache, limit=MAX_ASSET_BYTES, cancel_event=None):
+def download(url, cache, limit=MAX_ASSET_BYTES, cancel_event=None, force_reload=False):
     check_cancel(cancel_event)
     parts = urllib.parse.urlsplit(url)
     if parts.scheme not in ('http', 'https') or not parts.hostname:
@@ -40,7 +40,7 @@ def download(url, cache, limit=MAX_ASSET_BYTES, cancel_event=None):
     cache = Path(cache)
     cache.mkdir(parents=True, exist_ok=True)
     target = cache / (hashlib.sha256(url.encode()).hexdigest() + suffix)
-    if target.is_file() and 0 < target.stat().st_size <= limit:
+    if not force_reload and target.is_file() and 0 < target.stat().st_size <= limit:
         return target
     temporary = target.with_suffix(suffix + '.' + uuid.uuid4().hex + '.part')
     try:

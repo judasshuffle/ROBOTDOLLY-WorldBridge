@@ -38,6 +38,33 @@ def apply_visibility(scene):
         for layer in scene.view_layers:
             if obj.name in layer.objects:
                 obj.hide_set(hidden[group], view_layer=layer)
+    apply_lighting(scene)
+
+
+def apply_lighting(scene):
+    for _, space in viewports():
+        space.overlay.show_extras = getattr(scene, 'worldbridge_show_lights', True)
+    region = getattr(scene, 'worldbridge_region', None)
+    inverse = (region.matrix_world.inverted_safe() if region else None)
+    for obj in scene.objects:
+        anchor = entity_anchor(obj)
+        if anchor is None:
+            continue
+        if obj.type == 'CAMERA':
+            obj.hide_set(not getattr(scene, 'worldbridge_show_cameras', False))
+        elif obj.type == 'LIGHT':
+            # hide_set only affects the viewport. Energy separately controls contribution.
+            # Shared Extras overlay hides gizmos without removing illumination.
+            if 'worldbridge_original_energy' not in obj:
+                obj['worldbridge_original_energy'] = obj.data.energy
+            enabled = getattr(scene, 'worldbridge_enable_lights', True)
+            if getattr(scene, 'worldbridge_lights_region_only', False) and inverse:
+                enabled = enabled and all(abs(v) <= 1 + 1e-6 for v in inverse @ anchor.matrix_world.translation)
+            obj.data.energy = obj['worldbridge_original_energy'] if enabled else 0
+
+
+def lighting_update(scene, context):
+    apply_lighting(scene)
 
 
 def visibility_update(scene, context):
@@ -139,3 +166,25 @@ def frame_entities(anchors, workspace=None):
 def selected_anchors(context):
     return list({anchor for obj in context.selected_objects
                  if (anchor := entity_anchor(obj)) is not None})
+
+
+def region_anchors(context):
+    region = context.scene.worldbridge_region
+    if region is None or region.name not in context.scene.objects:
+        raise ValueError('Create a selection region first')
+    context.view_layer.update()
+    if abs(region.matrix_world.determinant()) < 1e-12:
+        raise ValueError('Selection region must have nonzero X, Y and Z size')
+    inverse = region.matrix_world.inverted()
+    result = []
+    for obj in context.scene.objects:
+        if 'worldbridge_entity_id' not in obj:
+            continue
+        points = [inverse @ obj.matrix_world.translation]
+        if getattr(context.scene, 'worldbridge_region_bounds', False):
+            points = [inverse @ child.matrix_world @ Vector(corner)
+                      for child in owned_objects(obj) if child.type == 'MESH'
+                      for corner in child.bound_box] or points
+        if all(min(p[i] for p in points) <= 1 + 1e-6 and max(p[i] for p in points) >= -1 - 1e-6 for i in range(3)):
+            result.append(obj)
+    return result

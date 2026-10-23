@@ -2,6 +2,17 @@
 
 WorldBridge is experimental. These entries describe implemented work, not universal compatibility guarantees.
 
+## v0.4 — local development, unpublished
+
+- Added All Supported Files / JSON / gzip / ZIP browser filters and bounded archive inspection, with explicit choice between multiple entity backups.
+- Kept decompression in bounded memory: no archive extraction or writes beside original backups.
+- Defaulted full-world imports to placeholders. Added a movable/scalable/rotatable 3D region, origin or conservative bounds intersection, selection preview and confirmation.
+- Preview includes unique assets, cache hits and required downloads; existing loaded instances are skipped. Added explicit cache refresh for retries.
+- Suppressed embedded model cameras by default while preserving camera summaries and original cached files. Added camera visibility and independent light contribution controls.
+- Added read-only local texture-rescue lookup with hash-based cache copies and unresolved-image diagnostics.
+- Tested genuine 2,121-entity JSON/gzip equivalence and actual repaired content archives. See docs/V0.4.md for evidence and limitations.
+- Original rescue files and older releases are preserved. No GitHub publication.
+
 ## v0.3.0-alpha — v0.3 work in progress
 
 - Added persistent viewport clipping controls, workspace-wide application and preservation of adjusted values.

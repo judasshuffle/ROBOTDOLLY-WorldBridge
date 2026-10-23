@@ -1,5 +1,8 @@
 # Usage guide — v0.3 alpha
 
+This guide is retained for the published v0.3 release. For the local v0.4 build,
+use **[the v0.4 guide](V0.4.md)**; file selection, area selection, defaults and logs changed.
+
 ## Backups and preservation
 
 Import a DarkRide/High Fidelity-style backup object containing an `Entities` array. Supported filenames are `.json`, `.json.gz` and `.gz`; gzip is detected from its signature rather than only the extension. The decompressed input is limited to 512 MiB. Source backup files are read only.

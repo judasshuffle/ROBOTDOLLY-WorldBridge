@@ -3,6 +3,7 @@ from pathlib import Path
 import tempfile
 import threading
 import unittest
+import hashlib
 from worldbridge.preparation import prepare_selected
 from worldbridge.assets import DownloadCancelled
 
@@ -39,6 +40,17 @@ class SelectionTests(unittest.TestCase):
         event.set()
         with self.assertRaises(DownloadCancelled):
             prepare_selected(self.targets, self.root, 'test', 4, event)
+
+    def test_preview_cache_unique_and_unlimited(self):
+        cache = self.root/'cache'
+        cache.mkdir()
+        url = 'https://example.test/1.glb'
+        (cache/(hashlib.sha256(url.encode()).hexdigest()+'.glb')).write_bytes(b'cached')
+        result = prepare_selected(self.targets, self.root, 'test', 0)
+        self.assertEqual(len(result['tasks']), 3)
+        self.assertEqual(result['report']['selected_unique_assets'], 3)
+        self.assertEqual(result['report']['selected_cached_assets'], 1)
+        self.assertEqual(result['report']['selected_downloadable_assets'], 2)
 
 
 if __name__ == '__main__':

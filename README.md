@@ -1,5 +1,18 @@
 # ROBOTDOLLY WorldBridge
 
+**v0.4 local development build — not published.** Install the local
+`ROBOTDOLLY-WorldBridge-v0.4.zip` through Blender's Add-ons > Install from Disk.
+Use WorldBridge's separate **Import DarkRide Backup** button to open worlds.
+
+v0.4 adds ZIP/content-ZIP inspection and world choice, a placeholder-first default,
+visual region selection, confirmation with cache/download counts, optional bounds
+intersection, camera suppression, light controls and local texture recovery.
+See the **[v0.4 usage, findings and limitations](docs/V0.4.md)** for current instructions.
+The v0.1–v0.3 ZIPs and published v0.3 release remain unchanged.
+
+The overview below documents the preserved published v0.3 alpha. Its numeric
+region controls, defaults and log locations are superseded by the v0.4 guide.
+
 *An experimental Blender bridge for DarkRide and High Fidelity virtual worlds.*
 
 **ROBOTDOLLY / Judas** is developing WorldBridge independently to import, inspect and eventually rearrange virtual-world entities in Blender. The long-term ambition is to make managing a world as intuitive as selecting and moving objects in a 3D editor.
@@ -8,7 +21,7 @@ Our first successful test reconstructed a **2,121-entity world** in Blender, wit
 
 > **Early work in progress — expect missing textures, unfinished features and occasional gremlins.** This is an experimental alpha, not a production-ready editor or a promise of full compatibility with every DarkRide world. Keep original backups unchanged and work on copies.
 
-## Current capabilities — v0.3
+## Published capabilities — v0.3
 
 - Import DarkRide / High Fidelity-style world backup JSON containing an `Entities` array, including gzip-compressed files.
 - Preserve entity IDs, hierarchy, transforms and complete parsed source metadata in linked JSON sidecars.
